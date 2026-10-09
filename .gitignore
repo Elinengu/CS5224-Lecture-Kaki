@@ -1,0 +1,22 @@
+# Build output
+dist/
+build/
+out/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+__pycache__
+
+# IDEs
+.vscode/
+# Local agent plans
+.claude/plans/
+*.code-workspace
