@@ -1,23 +1,18 @@
-### Lecture Kaki 
-  - FE - React + Radix UI + React Router + Vite
-  - BE - FastAPI
+# LectureKaki
 
-### Contributing
+A CS5224 Cloud Computing project to help NUS students discover lectures beyond
+their enrolled modules and find companions to attend with, using
+[NUSMods](https://api.nusmods.com/v2/) module and timetable data.
 
-- Work on a feature branch and open a pull request into `main`.
-- Keep commits focused and use Conventional Commits, for example
-  `chore: establish repository workflow guardrails`.
-- Run the relevant local checks before committing. Include their results in the
-  PR and obtain one teammate's approval before merging.
-- Do not force-push shared branches; add a follow-up commit instead.
+## Planned tech stack
 
-Enable the repository's Git hooks once per checkout (Git for Windows supported):
+- **Frontend:** React, TypeScript, Vite, React Router, CSS.
+- **Backend:** Python, FastAPI.
+- **AWS:** S3, CloudFront, API Gateway, Lambda, Cognito, DynamoDB.
 
-```sh
-git config --local core.hooksPath .githooks
-```
+## Planned features
 
-The hooks block commits on `main` and pushes targeting `main`. Local hooks are
-bypassable; the repository owner must configure GitHub branch protection to
-enforce pull requests and one approving review. Required CI checks will be added
-once the initial workflow exists.
+- Lecture discovery by faculty, timing, and interests.
+- Personal timetable entry or NUSMods timetable import.
+- Lecture recommendations that fit interests and free time.
+- Session discussions to connect with other students and find companions.
