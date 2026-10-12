@@ -3,20 +3,29 @@ dist/
 build/
 out/
 
+# Dependencies and Python tooling
+node_modules/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
 # Environment / secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+.aws/
 *.pem
 *.key
 
 # OS
 .DS_Store
 Thumbs.db
-__pycache__
 
 # IDEs
 .vscode/
-# Local agent plans
-.claude/plans/
-*.code-workspace
