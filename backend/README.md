@@ -7,7 +7,12 @@ Run these commands from `backend/`:
 ```sh
 poetry env use 3.14
 poetry install
-poetry run uvicorn app.main:app --reload
+```
+
+Copy [`.env.example`](.env.example) to `.env.local` and fill in the public Cognito values, then start the API:
+
+```sh
+poetry run uvicorn app.main:app --reload --env-file .env.local
 ```
 
 Health check: `http://localhost:8000/health`. API docs: `http://localhost:8000/docs`.
