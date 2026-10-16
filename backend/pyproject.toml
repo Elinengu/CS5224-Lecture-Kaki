@@ -11,6 +11,8 @@ package-mode = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-m 'not cognito'"
+markers = ["cognito: opt-in tests against the development Cognito pool"]
 
 [tool.ruff.lint]
 extend-select = ["I"]

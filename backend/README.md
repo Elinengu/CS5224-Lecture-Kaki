@@ -25,4 +25,4 @@ Authentication uses Cognito for signup and login. The pre-signup Lambda rejects 
 
 Deploy authentication once to a shared development AWS account in `ap-southeast-1`. CloudFormation creates Cognito, the signup Lambda, its execution role, and logs while a private S3 bucket holds the Lambda deployment package.
 
-See [authentication](../docs/authentication.md) for the flow, integration details, and deployment commands.
+See [authentication](../docs/authentication.md) for the flow, integration details, deployment commands, and opt-in Cognito tests.

@@ -120,9 +120,9 @@ def test_oauth_bearer_string_returns_current_user(signing_keys, jwks_http) -> No
     assert user.user_id == "test-user"
 
 
-@pytest.mark.parametrize("authorization", [None, "Basic abc", "Bearer", "Bearer abc"])
-def test_missing_or_malformed_credentials(client: TestClient, authorization) -> None:
-    headers = {} if authorization is None else {"Authorization": authorization}
+@pytest.mark.parametrize("authorisation", [None, "Basic abc", "Bearer", "Bearer abc"])
+def test_missing_or_malformed_credentials(client: TestClient, authorisation) -> None:
+    headers = {} if authorisation is None else {"Authorization": authorisation}
 
     assert_unauthorised(client.get("/auth/me", headers=headers))
 

@@ -43,11 +43,11 @@ sequenceDiagram
 
 ## Tokens and access
 
-| Token | Purpose |
-| --- | --- |
-| Access token | Credential for protected API requests; expires after 15 minutes. |
-| ID token | Identity information for the frontend; do not use it as an API credential. |
-| Refresh token | Obtains new tokens from Cognito; expires after 30 days. |
+| Token         | Purpose                                                                    |
+| ------------- | -------------------------------------------------------------------------- |
+| Access token  | Credential for protected API requests; expires after 15 minutes.           |
+| ID token      | Identity information for the frontend; do not use it as an API credential. |
+| Refresh token | Obtains new tokens from Cognito; expires after 30 days.                    |
 
 - Email addresses cannot change after signup. Email confirmation proves mailbox access, not current NUS enrolment.
 - On logout, clear local tokens, revoke the refresh token, and end the Cognito hosted session. Access tokens can still pass local validation until expiry.
@@ -88,14 +88,14 @@ aws cloudformation validate-template --template-body file://build/auth.packaged.
 aws cloudformation deploy --template-file build/auth.packaged.yaml --stack-name lecture-kaki-auth-dev --parameter-overrides "DomainPrefix=$domainPrefix" --capabilities CAPABILITY_IAM --no-execute-changeset --region ap-southeast-1 --profile $awsProfile
 ```
 
-Packaging uploads the signup Lambda. The final command prepares a change set without applying it. Review the proposed changes, particularly any user-pool replacement:
+Packaging uploads the Lambda. Deployment prepares a change set without applying it. Review it, especially any user-pool replacement:
 
 ```powershell
 $changeSetArn = '<printed-change-set-arn>'
 aws cloudformation describe-change-set --change-set-name $changeSetArn --region ap-southeast-1 --profile $awsProfile
 ```
 
-The template defaults to callback `http://localhost:8000/docs/oauth2-redirect` and logout destination `http://localhost:8000/docs`. Override `CallbackURLs` and `LogoutURLs` when deploying for a different client.
+Defaults are callback `http://localhost:8000/docs/oauth2-redirect` and logout destination `http://localhost:8000/docs`. Override `CallbackURLs` and `LogoutURLs` for a different client.
 
 ### Apply and verify
 
@@ -111,8 +111,31 @@ Wait for the stack to finish successfully, then read its public configuration:
 aws cloudformation describe-stacks --stack-name lecture-kaki-auth-dev --query 'Stacks[0].Outputs' --region ap-southeast-1 --profile $awsProfile
 ```
 
-Verify signup, rejection of other email domains, email confirmation, login, password recovery, and protected API access using a real NUS mailbox.
-
 The user pool is retained on stack deletion/replacement; remove retained resources and S3 deployment packages when no longer needed. Lambda logs expire after 14 days. Default Cognito email delivery is limited to 50 messages per account per day; see [AWS email limits](https://docs.aws.amazon.com/cognito/latest/developerguide/quotas.html).
+
+## Testing against Cognito
+
+Opt-in integration tests check real access-token identity, ID-token rejection, and the Lambda's rejection of ordinary and lookalike non-NUS domains. Normal tests and CI exclude these checks. If the domain gate fails, remove any created `lecture-kaki-test-` accounts.
+
+Sign in to the deployed pool through local `/docs` using a designated NUS email account. From the browser's Network panel, copy both tokens from the same successful `/oauth2/token` response into `backend/.env.local`. Remove them after testing; never share them in issues or test output.
+
+```dotenv
+COGNITO_TEST_ACCESS_TOKEN=<fresh-access-token>
+COGNITO_TEST_ID_TOKEN=<fresh-id-token-from-the-same-login>
+```
+
+From `backend/`, run:
+
+```sh
+poetry run python -m pytest -m cognito tests/integration
+```
+
+What to check:
+
+- [ ] Email confirmation: login is blocked before confirmation and succeeds after entering the emailed code.
+- [ ] Password recovery: the emailed recovery code allows a password reset, and login succeeds with the new password.
+- [ ] Token refresh: a valid refresh token obtains new access tokens without another login.
+- [ ] Refresh-token revocation: a revoked refresh token can no longer obtain new tokens.
+- [ ] Hosted logout: signing out ends Cognito's browser session, and the next sign-in requires credentials.
 
 References: [backend setup](../backend/README.md), [signup Lambda](../backend/lambdas/pre_signup/handler.py), [Cognito code and PKCE flow](https://docs.aws.amazon.com/cognito/latest/developerguide/authorization-endpoint.html), and [JWT verification](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-verifying-a-jwt.html).
