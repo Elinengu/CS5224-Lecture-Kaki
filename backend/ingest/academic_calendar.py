@@ -85,6 +85,15 @@ def week_label(semester: Semester, day: date) -> str | None:
     return f"exam-{index - LAST_TEACHING_WEEK - 1}"
 
 
+WEEKLY_RUN_LABELS = frozenset({"week-01", "week-02", "week-03"})
+
+
+def ingest_due(semester: Semester, today: date) -> bool:
+    """The schedule fires every Monday; ingest weekly in teaching weeks 1-3, when
+    timetables change most, and otherwise only on the first Monday of the month."""
+    return week_label(semester, today) in WEEKLY_RUN_LABELS or today.day <= 7
+
+
 def class_dates(semester: Semester, day_name: str, weeks: list | dict) -> list[date]:
     """Dates a class meets, dropping public holidays and anything outside the semester.
 

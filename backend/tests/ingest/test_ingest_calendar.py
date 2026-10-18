@@ -5,6 +5,7 @@ import pytest
 from ingest.academic_calendar import (
     SEMESTERS,
     class_dates,
+    ingest_due,
     semester_for,
     teaching_week_monday,
     week_label,
@@ -100,3 +101,22 @@ def test_date_range_without_weeks_uses_interval():
 def test_date_range_outside_semester_dropped():
     weeks = {"start": "2026-07-11", "end": "2026-08-15", "weeks": [1, 6]}
     assert class_dates(SEM1, "Saturday", weeks) == [date(2026, 8, 15)]
+
+
+@pytest.mark.parametrize(
+    ("today", "due"),
+    [
+        (date(2026, 8, 3), True),  # first Monday of August, before week 1
+        (date(2026, 8, 17), True),  # week 2
+        (date(2026, 8, 24), True),  # week 3
+        (date(2026, 8, 31), False),  # week 4
+        (date(2026, 9, 7), True),  # first Monday of September
+        (date(2026, 10, 19), False),
+        (date(2027, 1, 4), True),  # first Monday of January, before Sem 2 week 1
+        (date(2027, 1, 18), True),  # Sem 2 week 2
+        (date(2027, 2, 1), True),
+        (date(2027, 2, 8), False),  # Sem 2 week 5
+    ],
+)
+def test_ingest_due(today, due):
+    assert ingest_due(semester_for(today), today) is due

@@ -1,7 +1,8 @@
 """Scheduled Lambda: NUSMods -> lecture JSON in the web bucket.
 
-Invoke with {"date": "YYYY-MM-DD"} to ingest the semester containing that date
-instead of today's.
+The schedule fires every Monday; runs that aren't due (see `ingest_due`) are
+skipped. Invoke with {"date": "YYYY-MM-DD"} to ingest the semester containing
+that date right away, whatever the schedule says.
 """
 
 import json
@@ -11,7 +12,7 @@ from datetime import UTC, date, datetime, timedelta, timezone
 
 import boto3
 
-from ingest.academic_calendar import semester_for
+from ingest.academic_calendar import ingest_due, semester_for
 from ingest.nusmods import fetch_semester
 from ingest.publish import publish
 from ingest.transform import build_modules, build_sessions
@@ -24,11 +25,17 @@ logger.setLevel(logging.INFO)
 
 def handler(event, context, *, s3=None, now: datetime | None = None) -> dict:
     now = now or datetime.now(UTC)
-    if event and event.get("date"):
+    manual = bool(event and event.get("date"))
+    if manual:
         today = date.fromisoformat(event["date"])
     else:
         today = now.astimezone(SINGAPORE).date()
     semester = semester_for(today)
+
+    if not manual and not ingest_due(semester, today):
+        result = {"semester": semester.key, "skipped": f"not due on {today}"}
+        logger.info(json.dumps(result))
+        return result
 
     module_info, venue_info = fetch_semester(semester.acad_year, semester.number)
     sessions = build_sessions(module_info, venue_info, semester)

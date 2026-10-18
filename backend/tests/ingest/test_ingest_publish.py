@@ -113,8 +113,21 @@ def test_handler(s3, monkeypatch, module_info, venue_info):
         lambda acad_year, semester: (module_info, venue_info),
     )
 
-    result = ingest_handler.handler({}, None, s3=s3, now=NOW)
+    result = ingest_handler.handler({"date": "2026-10-19"}, None, s3=s3, now=NOW)
 
     assert result["semester"] == "2026-2027/sem-1"
     assert result["sessions"] > 0
     assert f"{PREFIX}/index.json" in keys(s3)
+
+
+def test_scheduled_run_skips_when_not_due(s3, monkeypatch):
+    monkeypatch.setenv("WEB_BUCKET", BUCKET)
+
+    def fail(*args):
+        raise AssertionError("should not fetch")
+
+    monkeypatch.setattr(ingest_handler, "fetch_semester", fail)
+    # 19:00 UTC Sunday 18 Oct = 03:00 SGT Monday 19 Oct, week 10.
+    result = ingest_handler.handler({}, None, s3=s3, now=NOW)
+
+    assert result == {"semester": "2026-2027/sem-1", "skipped": "not due on 2026-10-19"}

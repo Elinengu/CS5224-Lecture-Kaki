@@ -17,7 +17,7 @@ Every feature is data moving between a few boxes. Design the boxes by asking
 what goes in, what comes out, and where it's stored.
 
 ```
-                         daily
+                  weekly→monthly
   NUSMods API ──────► Ingest Lambda ──────► S3: lectures/…json ──┐
                                                                   │ CloudFront
   Browser (React) ◄───────────────────────────────────────────────┘
@@ -35,7 +35,7 @@ Four kinds of data, each with one owner:
 
 | Data | Changes | Stored in | Written by | Read by |
 |---|---|---|---|---|
-| Lecture sessions | daily | S3 JSON | ingest | browser, API |
+| Lecture sessions | weekly in weeks 1–3, then monthly | S3 JSON | ingest | browser, API |
 | User profile + timetable | when the user edits | DynamoDB `USER#<sub>` | API | API |
 | Forum posts | constantly, expire in 24 h | DynamoDB `ROOM#<sessionId>` | API | API, WebSocket |
 | Live connections | per browser tab | connections table | WS Lambdas | WS Lambdas |
@@ -83,7 +83,7 @@ there. Still to build: its AWS resources (§3.2).
   use a separate data bucket behind the same CloudFront distribution
   (`/lectures/*` → data bucket), or add `--exclude "lectures/*"`.
   *Suggestion: two buckets, one distribution.*
-- **Cache lifetimes:** lecture JSON changes at most daily; the site's
+- **Cache lifetimes:** lecture JSON changes at most weekly; the site's
   `index.html` changes every deploy. *Suggestion: 5 minutes for JSON, no-cache
   for `index.html`, long for hashed assets.*
 - **CORS:** if the site and API are on different domains, the API must allow

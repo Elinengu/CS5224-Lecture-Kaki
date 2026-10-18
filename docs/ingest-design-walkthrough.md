@@ -38,7 +38,7 @@ Start at the consumer, not the source.
 | How correct? | Wrong room or a cancelled lecture shown = a student walks to an empty hall. Correctness beats freshness. |
 
 **Why it matters:** the read pattern decides the storage layout (step 4) and
-freshness decides batch vs streaming (step 6). Small data + daily freshness
+freshness decides batch vs streaming (step 6). Small data + days-old freshness
 means a simple batch job — no Kafka, no database needed.
 
 **Your turn:** if students wanted live "lecture cancelled" alerts, what changes?
@@ -144,7 +144,7 @@ Design from the read pattern in step 0.
 | Discovery | Client guesses file names / index file | `index.json` + `current.json` | The app learns which dates and semester exist instead of guessing and hitting 404s. |
 
 **Interview line:** "Lecture data is read-heavy, identical for every user and
-changes daily, so I precomputed it into static files partitioned by the
+changes a few times a semester, so I precomputed it into static files partitioned by the
 access pattern and served them from a CDN. The API only handles per-user
 data."
 
@@ -181,10 +181,19 @@ all-new. We already have the pointer, so it's a small change if needed.
 
 | Decision | We chose | Alternatives |
 |---|---|---|
-| Trigger | EventBridge schedule, daily 03:00 SGT | Weekly (misses early-semester changes); on demand only |
+| Trigger | EventBridge every Monday 03:00 SGT; the code runs the ingest in weeks 1–3, then only on the first Monday of each month | Daily (fresher, but most runs find nothing new); fixed weekly; on demand only |
 | Compute | One Lambda, 1024 MB, 300 s timeout | ECS/Fargate task (for runs > 15 min), Step Functions (multi-step with retries per step), Airflow (many pipelines with dependencies) |
 | Which semester | Derived from today's date; override with `{"date": ...}` | Config variable changed by hand each semester |
-| Backfill / re-run | Invoke with a date | — |
+| Backfill / re-run | Invoke with a date (always runs) | — |
+
+**Why the schedule logic lives in code:** a cron expression can say "every
+Monday" but not "weeks 1–3 of the semester". The calendar is already in code,
+so the schedule stays fixed and the handler decides whether a run is due. The
+alternative — date-bounded schedules in the template — needs an infra change
+every semester.
+
+**The trade-off:** after week 3, a room change can take up to a month to show.
+Timetables mostly settle in the first weeks, and anyone can trigger a manual run.
 
 **Interview line:** "The run is 5 seconds and stateless, so a scheduled Lambda
 is enough. I'd move to Step Functions if it grew into several steps that need

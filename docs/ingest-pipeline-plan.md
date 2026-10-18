@@ -49,7 +49,7 @@ Decided by the team (Oct 2026):
 | 14 | Extra fields | `department`, `size`, `level`; descriptions go in a separate `modules.json`. |
 | 15 | Building | Prefix of the room code (`COM1-0207` → `COM1`), plus a map for lecture theatres in `ingest/venues.py`. |
 | 16 | Faculty names | NUSMods' raw names; the frontend maps them to display labels. |
-| 17 | Schedule | Daily. |
+| 17 | Schedule | Weekly in teaching weeks 1–3, then monthly. Implemented as a Monday 03:00 SGT schedule; the handler skips Mondays that aren't in weeks 1–3 or the first Monday of the month (`ingest_due`). A manual invoke with `{"date": ...}` always runs. |
 | 18 | Vanished dates | Their files are deleted. |
 | 19 | Bad data | Abort without writing if sessions drop below 50% of the last run or to zero; the Lambda error triggers an email alert. |
 | 20 | Calendar | Hand-entered table in `ingest/academic_calendar.py`. |
@@ -121,7 +121,7 @@ should have compression on.
 ## How a run works
 
 1. Pick the semester from today's Singapore date (or `{"date": "YYYY-MM-DD"}` in
-   the invoke event).
+   the invoke event). Scheduled runs that aren't due stop here.
 2. Download moduleInfo and venueInformation.
 3. Keep `Lecture` classes, drop NUS-ISS, expand weeks to dates, drop holidays
    and dates outside the semester, and de-duplicate.
@@ -138,7 +138,8 @@ A full Sem 1 run against live NUSMods takes about 5 s (S3 mocked).
 
 - `IngestFunction`: `CodeUri: ../backend`, `Handler: handlers.ingest.handler`,
   `Runtime: python3.14`, 1024 MB, timeout 300 s, env `WEB_BUCKET`.
-- `ScheduleV2` **daily**, e.g. `cron(0 19 * * ? *)` (03:00 SGT).
+- `ScheduleV2` **every Monday**, `cron(0 19 ? * SUN *)` (Mon 03:00 SGT); the
+  handler decides whether the run is due, so the schedule never changes per semester.
 - Policy `S3CrudPolicy` on the web bucket. `S3WritePolicy` (as in the guide)
   isn't enough: the change check needs `GetObject`/`HeadObject`, and cleanup
   needs `DeleteObject`.
