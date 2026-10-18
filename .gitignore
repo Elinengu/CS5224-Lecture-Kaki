@@ -29,3 +29,6 @@ Thumbs.db
 
 # IDEs
 .vscode/
+
+# SAM build output
+.aws-sam/

@@ -114,7 +114,7 @@ Day file (week files are the same with `week`, `startDate`, `endDate` instead of
 }
 ```
 
-Sizes for Sem 1 (25,220 sessions): 83 day files (median ~140 KB), 17 week files
+Sizes for Sem 1 (25,220 sessions): 83 day files (median ~140 KB), 15 week files
 (up to ~775 KB), `modules.json` ~1.2 MB, all before compression. CloudFront
 should have compression on.
 
@@ -134,18 +134,17 @@ should have compression on.
 
 A full Sem 1 run against live NUSMods takes about 5 s (S3 mocked).
 
-## Infra still needed (`infra/template.yaml`, workstream 7)
+## Infra (`infra/template.yaml`)
 
-- `IngestFunction`: `CodeUri: ../backend`, `Handler: handlers.ingest.handler`,
-  `Runtime: python3.14`, 1024 MB, timeout 300 s, env `WEB_BUCKET`.
-- `ScheduleV2` **every Monday**, `cron(0 19 ? * SUN *)` (Mon 03:00 SGT); the
-  handler decides whether the run is due, so the schedule never changes per semester.
-- Policy `S3CrudPolicy` on the web bucket. `S3WritePolicy` (as in the guide)
-  isn't enough: the change check needs `GetObject`/`HeadObject`, and cleanup
-  needs `DeleteObject`.
-- A CloudWatch alarm on the function's `Errors` metric → SNS topic → team email.
-- `backend/requirements.txt` exported from Poetry (no runtime dependencies for
-  ingest; `boto3` is in the Lambda runtime).
+Built: web bucket (private), `IngestFunction` (Python 3.14, 1024 MB, 300 s),
+a Monday 03:00 `Asia/Singapore` schedule, `S3CrudPolicy` on the bucket (the
+guide's `S3WritePolicy` lacks the read and delete the ingest needs), a 30-day log
+group, and an `Errors` alarm → SNS → email. Deploy and test steps:
+`ingest-deploy-runbook.md`.
+
+Still to add for the rest of the system: CloudFront in front of the bucket, and
+`backend/requirements.txt` exported from Poetry once the API function is added
+(the ingest has no third-party runtime dependencies).
 
 ## Before each new semester or academic year
 

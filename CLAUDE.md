@@ -36,7 +36,8 @@ DynamoDB, S3 + CloudFront, Cognito, EventBridge), deployed with SAM in
   `poetry run pytest`, `poetry run ruff check .`, `poetry run ruff format --check .`
 - Frontend (from `frontend/`, Node 24): `npm ci`, `npm run lint`,
   `npm run format:check`, `npm run build`
-- Infra (from `infra/`, once it exists): `sam build && sam deploy --config-env dev`
+- Infra (from `infra/`): `sam validate --lint`, `sam build`,
+  `sam deploy --config-env dev --parameter-overrides Env=dev AlertEmail=<email>`
 
 ## Reference (read when relevant)
 - `docs/team-agreements-and-aws-setup.md` — IDs, JSON contracts, API, DynamoDB, auth
@@ -44,4 +45,5 @@ DynamoDB, S3 + CloudFront, Cognito, EventBridge), deployed with SAM in
 - `docs/implementation-plan.md` — workstreams, owners, week plan
 - `docs/ingest-pipeline-plan.md` — NUSMods ingest design and decisions
 - `docs/ingest-design-walkthrough.md` — how to design the ingest from scratch; interview prep
+- `docs/ingest-deploy-runbook.md` — deploy the ingest to AWS and test it
 - `docs/system-design-guide.md` — whole-system design questions and build order
