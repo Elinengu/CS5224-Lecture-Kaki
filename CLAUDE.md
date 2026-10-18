@@ -45,5 +45,6 @@ DynamoDB, S3 + CloudFront, Cognito, EventBridge), deployed with SAM in
 - `docs/implementation-plan.md` — workstreams, owners, week plan
 - `docs/ingest-pipeline-plan.md` — NUSMods ingest design and decisions
 - `docs/ingest-design-walkthrough.md` — how to design the ingest from scratch; interview prep
+- `docs/ingest-code-walkthrough.md` — guided tour of the ingest code, following one lecture
 - `docs/ingest-deploy-runbook.md` — deploy the ingest to AWS and test it
 - `docs/system-design-guide.md` — whole-system design questions and build order
