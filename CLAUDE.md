@@ -43,4 +43,5 @@ DynamoDB, S3 + CloudFront, Cognito, EventBridge), deployed with SAM in
 - `docs/infra-and-cicd-guide.md` — SAM template, OIDC bootstrap, deploy workflow
 - `docs/implementation-plan.md` — workstreams, owners, week plan
 - `docs/ingest-pipeline-plan.md` — NUSMods ingest design and decisions
+- `docs/ingest-design-walkthrough.md` — how to design the ingest from scratch; interview prep
 - `docs/system-design-guide.md` — whole-system design questions and build order
