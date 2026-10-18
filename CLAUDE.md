@@ -22,10 +22,14 @@ DynamoDB, S3 + CloudFront, Cognito, EventBridge), deployed with SAM in
   shared mapping.
 - Branch from `main`, open a PR; nobody pushes to `main` directly.
 
-## Not yet decided — ask before implementing
-Session ID format, lecture file path, which lesson types count as lectures,
-Python 3.12 vs 3.14 for Lambda, `/health` vs `/api/health`. See "Open
-decisions" in `docs/ingest-pipeline-plan.md`.
+## Lecture data (decided; details in `docs/ingest-pipeline-plan.md`)
+- Session ID: `<module>-<code>-<classNo>@<YYYY-MM-DD>`, e.g. `SC3210-LEC-1@2026-10-13`;
+  a room or start-time suffix is added only when a class has two sessions that date
+- Files: `lectures/<acadYear>/sem-<n>/days/<date>.json`, `weeks/<label>.json`,
+  `index.json`, `modules.json`; `lectures/current.json` names the semester served
+- Only NUSMods `Lecture` lessons; Python 3.14 on Lambda; health check is `/api/health`
+  (the app still serves `/health`; not yet moved)
+- Design choices belong to the team: propose options, don't decide them in code
 
 ## Commands
 - Backend (from `backend/`, Python 3.14 + Poetry): `poetry install`,

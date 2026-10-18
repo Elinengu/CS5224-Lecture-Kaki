@@ -1,149 +1,153 @@
-# Ingest pipeline plan (workstream 0)
+# Ingest pipeline (workstream 0)
 
-Plan for the scheduled Lambda that turns NUSMods data into the per-day lecture
-JSON the frontend and lecture service read. Builds on §1.1–1.2 of
-`team-agreements-and-aws-setup.md` and step 0 of `implementation-plan.md`.
+Scheduled Lambda that turns NUSMods data into the lecture JSON the frontend and
+lecture service read. Extends §1.1–1.2 of `team-agreements-and-aws-setup.md`
+and step 0 of `implementation-plan.md`. Code: `backend/handlers/ingest.py` and
+`backend/ingest/`.
 
-Status: **plan only — no code yet.** Items marked _Open_ need a team decision
-before implementation.
+## Source data
 
-## What NUSMods actually gives us (checked 16 Oct 2026, AY2026-2027)
+Two downloads per run (checked against AY2026-2027 data in Oct 2026):
 
-| Endpoint | Size | Contains |
+| Endpoint | Gives us |
+|---|---|
+| `/v2/<acadYear>/moduleInfo.json` (~19 MB) | title, faculty, department, description, credits. **No timetable.** |
+| `/v2/<acadYear>/semesters/<n>/venueInformation.json` | every scheduled class per room per day: `moduleCode`, `lessonType`, `classNo`, `startTime`, `endTime`, `weeks`, `size` |
+
+Things the code handles:
+
+- Times are `"HHMM"` → output `"HH:MM"`.
+- `weeks` is either a list of teaching-week numbers (recess falls after week 6)
+  or `{"start", "end", "weeks"?, "weekInterval"?}`, where week numbers count
+  calendar weeks from `start`.
+- Online classes appear under pseudo-rooms `E-Learn_*` / `E-Hybrid_*`.
+- Cross-listed classes appear as `"CS2103T/​CS2103"` (slash plus a
+  zero-width space).
+- Some slots are listed twice with different end times (e.g. BMI5102 Mon
+  18:30–20:00 and 18:30–21:30 in the same room).
+- A class can move rooms in some weeks (LAJ1201: LT19 weeks 1–6, LT14 weeks
+  7–13). Rooms are attached per date, so each date shows the right room.
+
+## Decisions
+
+Decided by the team (Oct 2026):
+
+| # | Topic | Decision |
 |---|---|---|
-| `/v2/2026-2027/moduleInfo.json` | ~19 MB, 21k entries | title, faculty, department, description, semesters offered — **no timetable** |
-| `/v2/2026-2027/semesters/1/venueInformation.json` | 599 venues | every scheduled class per venue per day: `moduleCode`, `lessonType`, `classNo`, `startTime`, `endTime`, `weeks`, `size` |
-| `/v2/2026-2027/modules/<code>.json` | 1 per module | full timetable for one module (6.8k modules → 6.8k requests) |
+| 1 | Semester | Automatic from today's Singapore date: Aug–Dec → Sem 1, Jan–Jul → Sem 2 (Sem 2 files keep being served through June–July; no Special Term ingest). |
+| 2 | Lesson types | `Lecture` only. |
+| 3 | Classes with no room | Skipped (they aren't in venueInformation). |
+| 4 | Postgrad / evening | Included, with a `level` field (SC3210 → 3000). |
+| 5 | Weekends | Included. |
+| 6 | Range | Whole semester, week 1 to the end of exams. |
+| 7 | Public holidays | Lectures on gazetted holidays (and days observed in lieu) are dropped. |
+| 8 | Session ID | `<module>-<code>-<classNo>@<YYYY-MM-DD>`, e.g. `SC3210-LEC-1@2026-10-13`. |
+| 9 | Lesson-type codes | `Lecture` → `LEC`, defined once in `ingest/lesson_types.py` and published in `index.json`. |
+| 10 | Same class in two rooms at once | One session per room; only those sessions get the room appended: `ID3041-LEC-1@2026-10-15-SDE3-LT424`. |
+| 11–12 | Files | Per day and per week, under `lectures/<acadYear>/sem-<n>/days/` and `/weeks/`; weeks named by NUS week (`week-01` … `week-13`, `recess`, `reading`, `exam-1`, `exam-2`). |
+| 13 | Index | `index.json` per semester. |
+| 14 | Extra fields | `department`, `size`, `level`; descriptions go in a separate `modules.json`. |
+| 15 | Building | Prefix of the room code (`COM1-0207` → `COM1`), plus a map for lecture theatres in `ingest/venues.py`. |
+| 16 | Faculty names | NUSMods' raw names; the frontend maps them to display labels. |
+| 17 | Schedule | Daily. |
+| 18 | Vanished dates | Their files are deleted. |
+| 19 | Bad data | Abort without writing if sessions drop below 50% of the last run or to zero; the Lambda error triggers an email alert. |
+| 20 | Calendar | Hand-entered table in `ingest/academic_calendar.py`. |
+| 21 | Python | 3.14 (Lambda `python3.14`); export `requirements.txt` from Poetry for `sam build`. |
+| 22 | HTTP | Standard-library `urllib`; no extra runtime dependency. |
+| 23 | Code location | `backend/handlers/ingest.py` + `backend/ingest/`. |
+| 24 | Frontend access | Browsing reads the JSON straight from CloudFront; the API handles filtered search and recommendations. |
+| 25 | Health path | `/api/health`. |
+| 26 | Online classes | Kept, marked `"online": true`. |
+| 27 | NUS-ISS all-day courses | Dropped (faculty `NUS-ISS`). |
 
-So the implementation plan's two-file approach works: **venueInformation gives
-the timetable, moduleInfo gives title and faculty — two requests per run**,
-instead of thousands of per-module fetches.
+Defaults chosen during implementation — **confirm or change**:
 
-Known gap: a class with no venue (online, TBA) is not in venueInformation.
-4,239 modules are offered in Sem 1 but only 2,524 appear in the venue file. For
-an app about walking into a lecture, venue-less classes are not useful, so we
-accept the gap and note it in the report.
+| Topic | Default |
+|---|---|
+| Class meets twice on one date at different times (13 classes in Sem 1, e.g. CG2028 Tue 14:00 online + 15:00 in SDE3-LT424) | Both sessions get the start time appended: `CG2028-LEC-01@2026-08-11-1400`. Same pattern as decision 10. |
+| Cross-listed codes (`CE2112T/CE2112`) | `moduleCode` is the first code; the others go in a `crossListed` list. Keeps `/` out of IDs, which would break `/api/sessions/{id}/posts`. |
+| Slot listed twice with different end times | Keep the longer one. |
+| Lecture-theatre buildings | Derived from NUSMods room coordinates (nearest building code). LT3, LT4 and LT16 had no building close enough and are left `null`. Someone who knows campus should check the map. |
+| NUS Well-Being Day (Fri 9 Oct 2026 in one version of the Registrar calendar) | **Not** treated as a holiday; lectures that day are kept. |
 
-### Shapes to handle
-
-- Times are `"HHMM"` strings (`"1000"`) → normalise to `"HH:MM"`.
-- `weeks` comes in two forms (9,335 list / 127 dict in Sem 1):
-  - **List** `[1, 2, …, 13]` — teaching-week numbers. Needs the academic
-    calendar: week 1 Monday, plus the recess week inserted after week 6.
-  - **Dict** `{"start": "2026-08-13", "end": "2026-11-19", "weeks": [1..6, 8..15]}`
-    — calendar weeks counted from `start` (recess is just a skipped number).
-    `weeks` may be absent (every week from start to end; honour
-    `weekInterval` if present), and start may equal end (one-off).
-- `lessonType` values seen in Sem 1 with "lecture" in them: `Lecture` (2,235),
-  `Packaged Lecture` (46), `Design Lecture` (41). Also `Sectional Teaching`
-  (969), which is lecture-like in some faculties.
-
-### Academic calendar (AY2026-2027 Sem 1)
-
-Inferred from the data (a dict-form week-1 lecture on Thu 13 Aug): **week 1
-starts Mon 10 Aug 2026**; recess week 19–27 Sep; teaching weeks 7–13 from
-Mon 28 Sep. Verify against the NUS Registrar calendar and keep it in one small
-config table in code, keyed by `(acadYear, semester)`.
-
-## Design
-
-### Code layout
+## Output
 
 ```
-backend/handlers/ingest.py   # Lambda entry point (Handler: handlers.ingest.handler)
-backend/ingest/
-  nusmods.py                 # fetch the two files (httpx, timeout + retry)
-  calendar.py                # (acadYear, sem) → week-1 Monday, recess; week → date
-  lesson_types.py            # the ONE lessonType ↔ short-code mapping (LEC, TUT, …)
-  transform.py               # pure functions: raw classes → per-day session lists
-  writer.py                  # S3 writes, hash compare, index
-backend/tests/ingest/        # fixtures trimmed from real NUSMods files; no network
+lectures/current.json                          {"acadYear", "semester", "path"}: semester being served
+lectures/2026-2027/sem-1/index.json            days, weeks, counts, lesson-type codes
+lectures/2026-2027/sem-1/days/2026-10-13.json
+lectures/2026-2027/sem-1/weeks/week-09.json
+lectures/2026-2027/sem-1/modules.json          {"items": [...]} with descriptions
 ```
 
-Ingest stays out of `app/` so the API Lambda and ingest Lambda share a code
-URI without one importing the other's dependencies at startup.
-
-### Steps per run
-
-1. Fetch moduleInfo + venueInformation for the configured `ACAD_YEAR` and
-   `SEMESTER` (environment variables, so next semester is a config change).
-2. Keep classes whose `lessonType` is in the lecture allowlist.
-3. De-duplicate (a class can appear under more than one venue entry).
-4. Expand `weeks` into Singapore-local dates using the calendar.
-5. Join title + faculty from moduleInfo; add `building` (derived from the
-   venue code prefix where possible, else omitted — _Open_: is a venue→building
-   map worth it?).
-6. Group by date; sort each day by `startTime`, then `moduleCode`.
-7. For each day, serialise deterministically; compare a SHA-256 of the
-   `sessions` array with the hash stored as S3 object metadata; write only
-   when it changed (re-running changes nothing — the plan's "done when").
-8. Write `index.json` last (list of dates + `generatedAt`), so the frontend
-   never sees an index pointing at a missing file.
-9. Log counts (classes in, sessions out, files written/unchanged); return
-   them as the Lambda result so `aws lambda invoke` shows them.
-
-### Output (per §1.2)
+Day file (week files are the same with `week`, `startDate`, `endDate` instead of
+`date`):
 
 ```json
 {
-  "generatedAt": "2026-10-16T03:00:00Z",
+  "generatedAt": "2026-10-18T19:00:00Z",
+  "acadYear": "2026-2027",
+  "semester": 1,
   "date": "2026-10-13",
+  "week": "week-09",
   "sessions": [
     {
-      "id": "<see Open decision 1>",
+      "id": "SC3210-LEC-1@2026-10-13",
       "moduleCode": "SC3210",
-      "moduleTitle": "…",
-      "faculty": "…",
+      "crossListed": [],
+      "moduleTitle": "AI and Society",
+      "faculty": "Arts and Social Science",
+      "department": "Sociology and Anthropology",
+      "level": 3000,
       "lessonType": "Lecture",
       "classNo": "1",
+      "date": "2026-10-13",
       "startTime": "10:00",
       "endTime": "12:00",
       "venue": "UTSRC-GLR",
-      "building": "…"
+      "building": "UTSRC",
+      "online": false,
+      "size": 40
     }
   ]
 }
 ```
 
-### Infra (in `infra/template.yaml`, owned by workstream 7)
+Sizes for Sem 1 (25,220 sessions): 83 day files (median ~140 KB), 17 week files
+(up to ~775 KB), `modules.json` ~1.2 MB, all before compression. CloudFront
+should have compression on.
+
+## How a run works
+
+1. Pick the semester from today's Singapore date (or `{"date": "YYYY-MM-DD"}` in
+   the invoke event).
+2. Download moduleInfo and venueInformation.
+3. Keep `Lecture` classes, drop NUS-ISS, expand weeks to dates, drop holidays
+   and dates outside the semester, and de-duplicate.
+4. Refuse to publish if the session count is zero or below 50% of the last run.
+5. Write day, week and module files whose content changed. The content hash
+   (excluding `generatedAt`) is stored as S3 metadata, so unchanged data writes
+   nothing.
+6. Write `index.json` after the files it lists; then delete day and week files
+   that are no longer listed; then `current.json`.
+
+A full Sem 1 run against live NUSMods takes about 5 s (S3 mocked).
+
+## Infra still needed (`infra/template.yaml`, workstream 7)
 
 - `IngestFunction`: `CodeUri: ../backend`, `Handler: handlers.ingest.handler`,
-  1024 MB, timeout 300 s (two downloads + ~100 small writes is well inside it).
-- `ScheduleV2` event: `cron(0 19 ? * SUN *)` (Mon 03:00 SGT), as in the guide.
-- Policy: `S3CrudPolicy` on the web bucket (the hash compare needs
-  `GetObject`/`HeadObject`, which `S3WritePolicy` lacks; deleting stale day
-  files needs `DeleteObject`).
-- Env: `WEB_BUCKET`, `ACAD_YEAR`, `SEMESTER`.
-- Runtime/packaging must match the repo — see Open decision 4.
+  `Runtime: python3.14`, 1024 MB, timeout 300 s, env `WEB_BUCKET`.
+- `ScheduleV2` **daily**, e.g. `cron(0 19 * * ? *)` (03:00 SGT).
+- Policy `S3CrudPolicy` on the web bucket. `S3WritePolicy` (as in the guide)
+  isn't enough: the change check needs `GetObject`/`HeadObject`, and cleanup
+  needs `DeleteObject`.
+- A CloudWatch alarm on the function's `Errors` metric → SNS topic → team email.
+- `backend/requirements.txt` exported from Poetry (no runtime dependencies for
+  ingest; `boto3` is in the Lambda runtime).
 
-### Tests
+## Before each new semester or academic year
 
-- `calendar`: list weeks across recess; dict weeks with and without `weeks`;
-  one-off date; week 13 → correct November date.
-- `transform`: lecture filter, de-dup across venues, time normalisation, ID
-  format, a class with two lectures on the same day.
-- `writer`: unchanged hash → no write; index written last (S3 stubbed with
-  `moto` or botocore `Stubber`).
-- One end-to-end test on the trimmed SC3210 fixture.
-
-## Open decisions
-
-1. **Session ID format.** The agreements doc proposes
-   `CS2040-LEC-1@2026-10-14`. That **collides**: 26 Sem 1 lecture classes meet
-   twice on the same day (e.g. `CS2103T-LEC-G01` on Mondays), so two sessions
-   would share an ID and a forum room. Options: append start time
-   (`CS2103T-LEC-G01@2026-10-12-1000`), or use the CLAUDE.md-draft form
-   `<module>-<type>-<classNo>-<date>-<startTime>`. Recommend the first: it
-   keeps the agreed shape and only adds a suffix.
-2. **File path.** Agreements doc: `lectures/2026-2027/sem-1/<date>.json`.
-   An earlier draft: `data/lectures/<date>.json` + `index.json`. Recommend the
-   agreements-doc path plus an `index.json` in the same folder.
-3. **Lesson types counted as lectures.** `Lecture` + `Packaged Lecture` +
-   `Design Lecture` (recommended), with or without `Sectional Teaching`.
-4. **Python version and packaging.** Docs say Python 3.12 +
-   `backend/requirements.txt`; the repo is Python 3.14 + Poetry. Lambda
-   supports `python3.14`, so recommend keeping 3.14 and exporting
-   `requirements.txt` from Poetry for `sam build` (or `poetry-plugin-export`
-   in CI).
-5. **Health path.** Docs say `GET /api/health`; the app has `GET /health`.
-   Not an ingest issue, but the deploy smoke test depends on it.
+Add the semester to `SEMESTERS` and that year's holidays to `PUBLIC_HOLIDAYS` in
+`ingest/academic_calendar.py`. Without a calendar entry the run fails with a
+clear error rather than guessing.
