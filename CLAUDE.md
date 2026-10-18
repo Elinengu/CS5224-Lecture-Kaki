@@ -42,4 +42,5 @@ DynamoDB, S3 + CloudFront, Cognito, EventBridge), deployed with SAM in
 - `docs/team-agreements-and-aws-setup.md` — IDs, JSON contracts, API, DynamoDB, auth
 - `docs/infra-and-cicd-guide.md` — SAM template, OIDC bootstrap, deploy workflow
 - `docs/implementation-plan.md` — workstreams, owners, week plan
-- `docs/ingest-pipeline-plan.md` — NUSMods ingest design and open decisions
+- `docs/ingest-pipeline-plan.md` — NUSMods ingest design and decisions
+- `docs/system-design-guide.md` — whole-system design questions and build order
