@@ -2,7 +2,8 @@ import os
 
 from fastapi import FastAPI
 
-from app.auth import router as auth_router
+from app.health import router as health_router
+from app.modules.auth import router as auth_router
 
 app = FastAPI(
     title="LectureKaki API",
@@ -18,8 +19,4 @@ app = FastAPI(
     ),
 )
 app.include_router(auth_router)
-
-
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+app.include_router(health_router)

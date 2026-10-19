@@ -36,7 +36,7 @@ sequenceDiagram
 ## Using authentication in features
 
 - **Frontend:** use the region, pool ID, public client ID, and hosted domain from the stack outputs. Register exact callback/logout URLs and use HTTPS outside local development. Handle the login callback, token refresh, and logout; send API requests with `Authorization: Bearer <access_token>`.
-- **Backend:** use `Depends(get_current_user)` from `app.auth` on protected routes. It validates the token's signature, expiry, issuer, app-client `client_id`, `token_use=access`, and non-empty `sub`. Use the returned `user_id` (the verified `sub`), rather than a caller-supplied ID.
+- **Backend:** use `Depends(get_current_user)` from `app.modules.auth` on protected routes. It validates the token's signature, expiry, issuer, app-client `client_id`, `token_use=access`, and non-empty `sub`. Use the returned `user_id` (the verified `sub`), rather than a caller-supplied ID.
 - **Feature permissions:** check ownership separately where required. For example, take a comment's author from the authenticated user and allow edits only by its owner.
 
 `GET /auth/me` returns `{"user_id": "<sub>"}`. Missing or invalid credentials return `401` with a Bearer challenge; missing configuration or unavailable signing keys return `503`. `GET /health` is public.

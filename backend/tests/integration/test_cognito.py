@@ -10,8 +10,8 @@ import pytest
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 
-from app.auth import _get_jwks_client
 from app.main import app
+from app.modules.auth.dependencies import _get_jwks_client
 
 pytestmark = pytest.mark.cognito
 

@@ -1,5 +1,9 @@
 # LectureKaki backend
 
+For container startup and checks, see [Docker setup](../docs/docker.md).
+The API is a [modular monolith](../docs/architecture.md), composed in
+`app/main.py`; authentication lives in `app/modules/auth/`.
+
 Python 3.14 and Poetry.
 
 Run these commands from `backend/`:
