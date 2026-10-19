@@ -2,6 +2,10 @@
 
 React, TypeScript, Vite, and React Router.
 
+For a production build served by Nginx in Docker, see
+[Docker setup](../docs/docker.md). The commands below run the Vite development
+server with hot reload.
+
 Run these commands from `frontend/` using Node.js 24 LTS:
 
 ```sh

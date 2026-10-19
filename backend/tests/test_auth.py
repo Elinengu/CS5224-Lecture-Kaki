@@ -15,8 +15,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from httpx2 import Response
 
-from app.auth import _get_jwks_client, get_current_user
 from app.main import app
+from app.modules.auth.dependencies import _get_jwks_client, get_current_user
 
 REGION = "ap-southeast-1"
 POOL_ID = "ap-southeast-1_TestPool"

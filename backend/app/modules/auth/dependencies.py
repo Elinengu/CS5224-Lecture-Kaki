@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Annotated, Any
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
@@ -18,7 +18,8 @@ from jwt.exceptions import (
     PyJWKClientError,
     PyJWTError,
 )
-from pydantic import BaseModel
+
+from .schemas import CurrentUser
 
 _domain = os.getenv("COGNITO_DOMAIN", "").strip().rstrip("/")
 _bearer = (
@@ -31,10 +32,6 @@ _bearer = (
     if _domain
     else HTTPBearer(auto_error=False)
 )
-
-
-class CurrentUser(BaseModel):
-    user_id: str
 
 
 class _JWKClient(PyJWKClient):
@@ -112,13 +109,3 @@ def get_current_user(
         raise _unauthorised() from None
 
     return CurrentUser(user_id=claims["sub"])
-
-
-router = APIRouter(prefix="/auth", tags=["Authentication"])
-
-
-@router.get("/me")
-def read_current_user(
-    user: Annotated[CurrentUser, Depends(get_current_user)],
-) -> CurrentUser:
-    return user

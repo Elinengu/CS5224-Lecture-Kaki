@@ -1,0 +1,15 @@
+# Allow only inputs needed by the runtime and test stages.
+*
+!pyproject.toml
+!poetry.lock
+!app/
+!app/**
+!lambdas/
+!lambdas/**
+!tests/
+!tests/**
+**/__pycache__/
+**/*.pyc
+**/.env*
+**/*.pem
+**/*.key
