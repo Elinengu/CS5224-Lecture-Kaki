@@ -32,7 +32,7 @@ def handler(event, context, *, s3=None, now: datetime | None = None) -> dict:
         today = date.fromisoformat(event["date"])
     else:
         today = now.astimezone(SINGAPORE).date()
-    semester = semester_for(today) # pick semester 1 or 2
+    semester = semester_for(today)  # pick semester 1 or 2
 
     if not manual and not ingest_due(semester, today):
         result = {"semester": semester.key, "skipped": f"not due on {today}"}
@@ -47,7 +47,7 @@ def handler(event, context, *, s3=None, now: datetime | None = None) -> dict:
     # publish to S3
     result = publish(
         s3 or boto3.client("s3"),
-        os.environ["WEB_BUCKET"], # defined in infra/template.yaml
+        os.environ["WEB_BUCKET"],  # defined in infra/template.yaml
         semester,
         sessions,
         modules,

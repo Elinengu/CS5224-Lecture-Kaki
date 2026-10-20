@@ -6,6 +6,10 @@
 !app/**
 !lambdas/
 !lambdas/**
+!handlers/
+!handlers/**
+!ingest/
+!ingest/**
 !tests/
 !tests/**
 **/__pycache__/
