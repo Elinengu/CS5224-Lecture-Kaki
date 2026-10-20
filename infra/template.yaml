@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: LectureKaki - all AWS resources. Change them here, never in the console.
+
+Parameters:
+  Env:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Email that receives ingest failure alerts (leave empty for none)
+
+Conditions:
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+
+Globals:
+  Function:
+    Runtime: python3.14
+    Architectures: [x86_64]
+    Timeout: 20
+    MemorySize: 512
+    Environment:
+      Variables:
+        ENV: !Ref Env
+
+Resources:
+  # ---------- website + lecture data ----------
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'lecturekaki-${Env}-web-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      # CloudFront distribution + Origin Access Control + bucket policy go here.
+
+  # ------------------------------------------------------------
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: handlers.ingest.handler
+      Description: NUSMods -> lecture JSON in the web bucket
+      Timeout: 300
+      MemorySize: 1024
+      Environment:
+        Variables:
+          WEB_BUCKET: !Ref WebBucket
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref WebBucket }
+      Events:
+        EveryMonday:
+          Type: ScheduleV2
+          Properties:
+            # The handler decides whether a Monday's run is due (weeks 1-3, then monthly).
+            ScheduleExpression: 'cron(0 3 ? * MON *)'
+            ScheduleExpressionTimezone: Asia/Singapore
+            RetryPolicy:
+              MaximumRetryAttempts: 2
+
+  IngestLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${IngestFunction}'
+      RetentionInDays: 30
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'lecturekaki-${Env}-alerts'
+
+  AlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  IngestErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'lecturekaki-${Env}-ingest-errors'
+      AlarmDescription: Ingest Lambda failed; yesterday's lecture files are still being served.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref IngestFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+Outputs:
+  WebBucketName:
+    Value: !Ref WebBucket
+  IngestFunctionName:
+    Value: !Ref IngestFunction
+  AlertTopicArn:
+    Value: !Ref AlertTopic
